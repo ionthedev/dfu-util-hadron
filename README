@@ -1,5 +1,7 @@
 Dfu-util - Device Firmware Upgrade Utilities
 
+Version: 0.11.x
+
 Dfu-util is a host side implementation of the DFU 1.0 and DFU 1.1 [1]
 specification of the USB forum.
 
@@ -20,7 +22,8 @@ See the INSTALL file for build instructions.
 [1] DFU 1.1 specification:
     https://www.usb.org/sites/default/files/DFU_1.1.pdf
 
---- Appendix A: Clarity of Use
+---
+Appendix A: Clarity of Use
 This software is a critical component to many applications and there lacks a 
 a, modern and Cross-Platform source to download the application. This repo acts
 as a mirror of the original source code; no changes have been made, purely here
