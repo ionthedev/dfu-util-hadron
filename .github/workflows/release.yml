@@ -18,10 +18,10 @@ jobs:
       matrix:
         target:
           - id: mac-arm64
-            runs_on: macos-14
+            runs_on: macos-15
             kind: unix
           - id: mac-x86_64
-            runs_on: macos-13
+            runs_on: macos-15-intel
             kind: unix
           - id: linux-x86_64
             runs_on: ubuntu-24.04
