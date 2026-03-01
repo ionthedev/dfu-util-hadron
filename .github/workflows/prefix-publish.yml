@@ -7,6 +7,10 @@ on:
         description: "prefix.dev channel (optional override)"
         required: false
         type: string
+      build_num:
+        description: "Conda build number override (example: 2 for rev2)"
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -66,15 +70,30 @@ jobs:
           echo "channel=${channel}" >> "${GITHUB_OUTPUT}"
           echo "Publishing to prefix.dev/${channel}"
 
+      - name: Resolve build args
+        id: build_args
+        shell: bash
+        env:
+          INPUT_BUILD_NUM: ${{ github.event.inputs.build_num }}
+        run: |
+          set -euo pipefail
+          args="--target-platform ${{ matrix.target_platform }} -c conda-forge"
+          if [ -n "${INPUT_BUILD_NUM}" ]; then
+            if ! [[ "${INPUT_BUILD_NUM}" =~ ^[0-9]+$ ]]; then
+              echo "build_num must be an integer (0, 1, 2, ...)."
+              exit 1
+            fi
+            args="${args} --build-num ${INPUT_BUILD_NUM}"
+          fi
+          echo "args=${args}" >> "${GITHUB_OUTPUT}"
+
       - name: Build conda package
         uses: prefix-dev/rattler-build-action@v0.2.34
         with:
           recipe-path: conda.recipe/recipe.yaml
           artifact-name: conda-${{ matrix.target_platform }}
           upload-artifact: true
-          build-args: >-
-            --target-platform ${{ matrix.target_platform }}
-            -c conda-forge
+          build-args: ${{ steps.build_args.outputs.args }}
 
       - name: Upload package to prefix.dev
         shell: bash
