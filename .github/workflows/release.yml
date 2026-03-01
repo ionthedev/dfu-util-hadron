@@ -86,7 +86,7 @@ jobs:
 
           libusb_path="$(ldd src/dfu-util | awk '/libusb-1.0\.so/ {print $3; exit}')"
           if [ -n "${libusb_path}" ] && [ -f "${libusb_path}" ]; then
-            cp "${libusb_path}" dist/bin/
+            cp -L "${libusb_path}" dist/bin/
           else
             echo "Could not find libusb runtime dependency from ldd output."
             ldd src/dfu-util
@@ -113,7 +113,7 @@ jobs:
             exit 1
           fi
           libusb_name="$(basename "${libusb_path}")"
-          cp "${libusb_path}" "dist/bin/${libusb_name}"
+          cp -L "${libusb_path}" "dist/bin/${libusb_name}"
 
           install_name_tool -id "@executable_path/${libusb_name}" "dist/bin/${libusb_name}"
           for bin in dist/bin/dfu-util dist/bin/dfu-prefix dist/bin/dfu-suffix; do

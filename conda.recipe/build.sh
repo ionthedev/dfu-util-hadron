@@ -31,5 +31,6 @@ install -m 0755 dfu-util dfu-prefix dfu-suffix "${PREFIX}/bin/"
 # Include runtime libraries when they are present in the release artifact.
 shopt -s nullglob
 for lib in libusb-1.0*.dylib libusb-1.0.so*; do
-  install -m 0755 "${lib}" "${PREFIX}/bin/"
+  cp -L "${lib}" "${PREFIX}/bin/${lib##*/}"
+  chmod 0755 "${PREFIX}/bin/${lib##*/}"
 done

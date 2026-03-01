@@ -7,9 +7,6 @@ on:
         description: "prefix.dev channel (optional override)"
         required: false
         type: string
-  release:
-    types:
-      - published
 
 permissions:
   contents: read
