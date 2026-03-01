@@ -1,0 +1,95 @@
+name: Prefix Publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      channel:
+        description: "prefix.dev channel (optional override)"
+        required: false
+        type: string
+  release:
+    types:
+      - published
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  build-and-publish:
+    name: prefix-${{ matrix.target_platform }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            target_platform: linux-64
+          - runner: macos-15
+            target_platform: osx-arm64
+          - runner: macos-15-intel
+            target_platform: osx-64
+          - runner: windows-latest
+            target_platform: win-64
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check recipe version against release tag
+        if: github.event_name == 'release'
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          recipe_version="$(sed -n 's/^  version: "\([^"]*\)"/\1/p' conda.recipe/recipe.yaml | head -n 1)"
+          tag_version="${RELEASE_TAG#v}"
+          if [ "${recipe_version}" != "${tag_version}" ]; then
+            echo "Recipe version (${recipe_version}) does not match release tag (${RELEASE_TAG})."
+            echo "Update conda.recipe/recipe.yaml context.version before publishing this release."
+            exit 1
+          fi
+
+      - name: Resolve prefix channel
+        id: channel
+        shell: bash
+        env:
+          INPUT_CHANNEL: ${{ github.event.inputs.channel }}
+          VAR_CHANNEL: ${{ vars.PREFIX_CHANNEL }}
+          REPO_OWNER: ${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+          channel="${INPUT_CHANNEL}"
+          if [ -z "${channel}" ]; then
+            channel="${VAR_CHANNEL}"
+          fi
+          if [ -z "${channel}" ]; then
+            channel="${REPO_OWNER}"
+          fi
+          echo "channel=${channel}" >> "${GITHUB_OUTPUT}"
+          echo "Publishing to prefix.dev/${channel}"
+
+      - name: Build conda package
+        uses: prefix-dev/rattler-build-action@v0.2.34
+        with:
+          recipe-path: conda.recipe/recipe.yaml
+          artifact-name: conda-${{ matrix.target_platform }}
+          upload-artifact: true
+          build-args: >-
+            --target-platform ${{ matrix.target_platform }}
+            -c conda-forge
+
+      - name: Upload package to prefix.dev
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          files=(output/${{ matrix.target_platform }}/*.conda output/${{ matrix.target_platform }}/*.tar.bz2)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "No packages found in output/${{ matrix.target_platform }}"
+            exit 1
+          fi
+          for pkg in "${files[@]}"; do
+            echo "Uploading ${pkg}"
+            rattler-build upload prefix --skip-existing -c "${{ steps.channel.outputs.channel }}" "${pkg}"
+          done

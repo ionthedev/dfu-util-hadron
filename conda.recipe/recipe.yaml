@@ -1,0 +1,47 @@
+context:
+  version: "0.11"
+  github_owner: "ionthedev"
+  github_repo: "dfu-util-hadron"
+
+package:
+  name: dfu-util
+  version: ${{ version }}
+
+source:
+  - if: linux
+    then:
+      - url: https://github.com/${{ github_owner }}/${{ github_repo }}/releases/download/v${{ version }}/dfu-util-v${{ version }}-linux-x86_64.tar.gz
+  - if: osx and arm64
+    then:
+      - url: https://github.com/${{ github_owner }}/${{ github_repo }}/releases/download/v${{ version }}/dfu-util-v${{ version }}-mac-arm64.tar.gz
+  - if: osx and x86_64
+    then:
+      - url: https://github.com/${{ github_owner }}/${{ github_repo }}/releases/download/v${{ version }}/dfu-util-v${{ version }}-mac-x86_64.tar.gz
+  - if: win
+    then:
+      - url: https://github.com/${{ github_owner }}/${{ github_repo }}/releases/download/v${{ version }}/dfu-util-v${{ version }}-windows-x86_64.tar.gz
+
+build:
+  number: 0
+
+tests:
+  - script:
+      - if: unix
+        then:
+          - test -x "${PREFIX}/bin/dfu-util"
+          - test -x "${PREFIX}/bin/dfu-prefix"
+          - test -x "${PREFIX}/bin/dfu-suffix"
+      - if: win
+        then:
+          - if not exist "%LIBRARY_BIN%\\dfu-util.exe" exit /b 1
+          - if not exist "%LIBRARY_BIN%\\dfu-prefix.exe" exit /b 1
+          - if not exist "%LIBRARY_BIN%\\dfu-suffix.exe" exit /b 1
+
+about:
+  homepage: https://dfu-util.sourceforge.net
+  summary: Device Firmware Upgrade utilities
+  license: GPL-2.0-or-later
+
+extra:
+  recipe-maintainers:
+    - ionthedev
