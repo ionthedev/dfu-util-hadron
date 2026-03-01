@@ -73,19 +73,39 @@ jobs:
       - name: Resolve build args
         id: build_args
         shell: bash
+        run: |
+          set -euo pipefail
+          args="--target-platform ${{ matrix.target_platform }} -c conda-forge"
+          echo "args=${args}" >> "${GITHUB_OUTPUT}"
+
+      - name: Override recipe build number
+        if: ${{ github.event.inputs.build_num != '' }}
+        shell: bash
         env:
           INPUT_BUILD_NUM: ${{ github.event.inputs.build_num }}
         run: |
           set -euo pipefail
-          args="--target-platform ${{ matrix.target_platform }} -c conda-forge"
-          if [ -n "${INPUT_BUILD_NUM}" ]; then
-            if ! [[ "${INPUT_BUILD_NUM}" =~ ^[0-9]+$ ]]; then
-              echo "build_num must be an integer (0, 1, 2, ...)."
-              exit 1
-            fi
-            args="${args} --build-num ${INPUT_BUILD_NUM}"
+          if ! [[ "${INPUT_BUILD_NUM}" =~ ^[0-9]+$ ]]; then
+            echo "build_num must be an integer (0, 1, 2, ...)."
+            exit 1
           fi
-          echo "args=${args}" >> "${GITHUB_OUTPUT}"
+          awk -v n="${INPUT_BUILD_NUM}" '
+            BEGIN { done=0 }
+            /^[[:space:]]*number:[[:space:]]*[0-9]+[[:space:]]*$/ && done==0 {
+              sub(/[0-9]+([[:space:]]*)$/, n)
+              done=1
+            }
+            { print }
+            END {
+              if (done==0) {
+                print "Could not find build.number field in conda.recipe/recipe.yaml" > "/dev/stderr"
+                exit 2
+              }
+            }
+          ' conda.recipe/recipe.yaml > conda.recipe/recipe.yaml.tmp
+          mv conda.recipe/recipe.yaml.tmp conda.recipe/recipe.yaml
+          echo "Using build.number=${INPUT_BUILD_NUM}"
+          grep -n "^[[:space:]]*number:" conda.recipe/recipe.yaml
 
       - name: Build conda package
         uses: prefix-dev/rattler-build-action@v0.2.34
