@@ -38,7 +38,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            autoconf automake libtool make pkg-config libusb-1.0-0-dev
+            autoconf automake libtool make patchelf pkg-config libusb-1.0-0-dev
 
       - name: Install dependencies (macOS)
         if: runner.os == 'macOS'
@@ -77,12 +77,49 @@ jobs:
           ./configure
           make -C src -j"$(nproc)"
 
-      - name: Package (Linux/macOS)
-        if: matrix.target.kind == 'unix'
+      - name: Package (Linux)
+        if: runner.os == 'Linux'
         shell: bash
         run: |
           mkdir -p dist/bin
           cp src/dfu-util src/dfu-prefix src/dfu-suffix dist/bin/
+
+          libusb_path="$(ldd src/dfu-util | awk '/libusb-1.0\.so/ {print $3; exit}')"
+          if [ -n "${libusb_path}" ] && [ -f "${libusb_path}" ]; then
+            cp "${libusb_path}" dist/bin/
+          else
+            echo "Could not find libusb runtime dependency from ldd output."
+            ldd src/dfu-util
+            exit 1
+          fi
+
+          for bin in dist/bin/dfu-util dist/bin/dfu-prefix dist/bin/dfu-suffix; do
+            patchelf --set-rpath '$ORIGIN' "${bin}"
+          done
+
+          tar -C dist/bin -czf "dist/dfu-util-${GITHUB_REF_NAME}-${{ matrix.target.id }}.tar.gz" .
+
+      - name: Package (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          mkdir -p dist/bin
+          cp src/dfu-util src/dfu-prefix src/dfu-suffix dist/bin/
+
+          libusb_path="$(otool -L src/dfu-util | awk '/libusb-1.0/ {print $1; exit}')"
+          if [ -z "${libusb_path}" ] || [ ! -f "${libusb_path}" ]; then
+            echo "Could not find libusb runtime dependency from otool output."
+            otool -L src/dfu-util
+            exit 1
+          fi
+          libusb_name="$(basename "${libusb_path}")"
+          cp "${libusb_path}" "dist/bin/${libusb_name}"
+
+          install_name_tool -id "@executable_path/${libusb_name}" "dist/bin/${libusb_name}"
+          for bin in dist/bin/dfu-util dist/bin/dfu-prefix dist/bin/dfu-suffix; do
+            install_name_tool -change "${libusb_path}" "@executable_path/${libusb_name}" "${bin}"
+          done
+
           tar -C dist/bin -czf "dist/dfu-util-${GITHUB_REF_NAME}-${{ matrix.target.id }}.tar.gz" .
 
       - name: Package (Windows)
@@ -91,9 +128,19 @@ jobs:
         run: |
           mkdir -p dist/bin
           cp src/dfu-util.exe src/dfu-prefix.exe src/dfu-suffix.exe dist/bin/
-          if [ -f /mingw64/bin/libusb-1.0.dll ]; then
-            cp /mingw64/bin/libusb-1.0.dll dist/bin/
-          fi
+
+          mapfile -t runtime_dlls < <(
+            {
+              ldd src/dfu-util.exe
+              ldd src/dfu-prefix.exe
+              ldd src/dfu-suffix.exe
+            } | awk '/=> \/mingw64\/bin\/.*\.dll/ {print $3}' | sort -u
+          )
+
+          for dll in "${runtime_dlls[@]}"; do
+            cp "${dll}" dist/bin/
+          done
+
           tar -C dist/bin -czf "dist/dfu-util-${GITHUB_REF_NAME}-${{ matrix.target.id }}.tar.gz" .
 
       - name: Upload build artifact

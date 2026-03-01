@@ -8,6 +8,10 @@ package:
 build:
   number: 0
 
+requirements:
+  run:
+    - libusb
+
 tests:
   - script:
       - if: unix
@@ -15,11 +19,13 @@ tests:
           - test -x "${PREFIX}/bin/dfu-util"
           - test -x "${PREFIX}/bin/dfu-prefix"
           - test -x "${PREFIX}/bin/dfu-suffix"
+          - "${PREFIX}/bin/dfu-util" --version
       - if: win
         then:
           - if not exist "%LIBRARY_BIN%\\dfu-util.exe" exit /b 1
           - if not exist "%LIBRARY_BIN%\\dfu-prefix.exe" exit /b 1
           - if not exist "%LIBRARY_BIN%\\dfu-suffix.exe" exit /b 1
+          - "%LIBRARY_BIN%\\dfu-util.exe" --version
 
 about:
   homepage: https://dfu-util.sourceforge.net

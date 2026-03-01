@@ -30,7 +30,7 @@ if errorlevel 1 exit /b 1
 copy /Y "dfu-suffix.exe" "%LIBRARY_BIN%\dfu-suffix.exe"
 if errorlevel 1 exit /b 1
 
-if exist "libusb-1.0.dll" (
-  copy /Y "libusb-1.0.dll" "%LIBRARY_BIN%\libusb-1.0.dll"
+for %%F in (*.dll) do (
+  copy /Y "%%F" "%LIBRARY_BIN%\%%F"
   if errorlevel 1 exit /b 1
 )
